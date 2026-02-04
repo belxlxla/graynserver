@@ -1,39 +1,64 @@
-// index.js
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
-const cors = require('cors');
 
 const app = express();
-app.use(cors()); // 모든 곳에서 접속 허용
-
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // 나중에 실제 도메인으로 바꿔야 함
-    methods: ["GET", "POST"]
-  }
-});
+const io = new Server(server);
 
-// 기본 접속 테스트용
 app.get('/', (req, res) => {
-  res.send('Grayn Chat Server is Running! 🚀');
+  // 간단한 채팅 화면 보내기 (HTML)
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Grayn Chat</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; }
+          #messages { list-style-type: none; margin: 0; padding: 0; }
+          #messages li { padding: 5px 10px; }
+          #messages li:nth-child(odd) { background: #eee; }
+        </style>
+      </head>
+      <body>
+        <h2>Grayn Chat 💬</h2>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+          <input id="input" autocomplete="off" style="width: 80%;" /><button>Send</button>
+        </form>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+          var socket = io();
+          var form = document.getElementById('form');
+          var input = document.getElementById('input');
+
+          form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (input.value) {
+              socket.emit('chat message', input.value);
+              input.value = '';
+            }
+          });
+
+          socket.on('chat message', function(msg) {
+            var item = document.createElement('li');
+            item.textContent = msg;
+            document.getElementById('messages').appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+          });
+        </script>
+      </body>
+    </html>
+  `);
 });
 
-// 소켓 연결 (채팅 로직)
 io.on('connection', (socket) => {
-  console.log('유저 접속함:', socket.id);
-
-  socket.on('send_message', (data) => {
-    // 받은 메시지를 방에 있는 모두에게 뿌림
-    socket.broadcast.emit('receive_message', data);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('유저 나감:', socket.id);
+  console.log('a user connected');
+  socket.on('chat message', (msg) => {
+    io.emit('chat message', msg);
   });
 });
 
 server.listen(3000, () => {
-  console.log('SERVER RUNNING ON PORT 3000');
+  console.log('listening on *:3000');
 });
